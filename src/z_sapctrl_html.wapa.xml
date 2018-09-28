@@ -1,0 +1,57 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_WAPA" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <ATTRIBUTES>
+    <APPLNAME>Z_SAPCTRL_HTML</APPLNAME>
+    <APPLEXT>z_sapctrl_html</APPLEXT>
+    <SECURITY>X</SECURITY>
+    <ORIGLANG>E</ORIGLANG>
+    <MODIFLANG>E</MODIFLANG>
+    <TEXT>sap control monitor</TEXT>
+   </ATTRIBUTES>
+   <PAGES>
+    <item>
+     <ATTRIBUTES>
+      <APPLNAME>Z_SAPCTRL_HTML</APPLNAME>
+      <PAGEKEY>SAPCONTROL.HTM</PAGEKEY>
+      <PAGENAME>sapcontrol.htm</PAGENAME>
+      <MIMETYPE>text/html</MIMETYPE>
+      <IS_START_PAGE>X</IS_START_PAGE>
+      <LAYOUTLANGU>E</LAYOUTLANGU>
+      <VERSION>A</VERSION>
+      <LANGU>E</LANGU>
+      <DESCRIPT>main page</DESCRIPT>
+     </ATTRIBUTES>
+    </item>
+    <item>
+     <ATTRIBUTES>
+      <APPLNAME>Z_SAPCTRL_HTML</APPLNAME>
+      <PAGEKEY>UPLOAD.HTM</PAGEKEY>
+      <PAGENAME>upload.htm</PAGENAME>
+      <MIMETYPE>text/html</MIMETYPE>
+      <IS_START_PAGE>X</IS_START_PAGE>
+      <LAYOUTLANGU>E</LAYOUTLANGU>
+      <VERSION>A</VERSION>
+      <LANGU>E</LANGU>
+      <DESCRIPT>Test for upload function</DESCRIPT>
+     </ATTRIBUTES>
+    </item>
+    <item>
+     <ATTRIBUTES>
+      <APPLNAME>Z_SAPCTRL_HTML</APPLNAME>
+      <PAGEKEY>WEBSOCKET.JS</PAGEKEY>
+      <PAGENAME>websocket.js</PAGENAME>
+      <PAGETYPE>V</PAGETYPE>
+      <CONTROLLERURL>CL_BSP_CONTROLLER</CONTROLLERURL>
+      <MIMETYPE>application/x-javascript</MIMETYPE>
+      <LAYOUTLANGU>E</LAYOUTLANGU>
+      <VERSION>A</VERSION>
+      <LANGU>E</LANGU>
+      <DESCRIPT>eezz web socket</DESCRIPT>
+     </ATTRIBUTES>
+    </item>
+   </PAGES>
+  </asx:values>
+ </asx:abap>
+</abapGit>
