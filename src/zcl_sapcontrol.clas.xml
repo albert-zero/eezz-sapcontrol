@@ -17,6 +17,12 @@
    <DESCRIPTIONS>
     <SEOCOMPOTX>
      <CLSNAME>ZCL_SAPCONTROL</CLSNAME>
+     <CMPNAME>GET_DEVTRACE</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>get the process list of an instance</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CLSNAME>ZCL_SAPCONTROL</CLSNAME>
      <CMPNAME>GET_INSTANCES</CMPNAME>
      <LANGU>E</LANGU>
      <DESCRIPT>Get the list of known instances</DESCRIPT>

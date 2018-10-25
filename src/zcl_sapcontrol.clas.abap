@@ -6,6 +6,11 @@ class ZCL_SAPCONTROL definition
 
 public section.
 
+  methods GET_DEVTRACE
+    importing
+      !PATH type STRING
+    returning
+      value(RT_TABLE) type ref to ZCL_EEZZ_TABLE .
   methods GET_INSTANCES
     importing
       !PATH type STRING
@@ -57,6 +62,62 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
   endmethod.
 
 
+  method get_devtrace.
+    types: begin of tstr_line,
+             inx  type i,
+             line type string,
+           end of tstr_line.
+
+    types tty_table type table of tstr_line with key line initial size 0.
+
+    if m_snapshot_jsn is not bound.
+      return.
+    endif.
+
+    data(x_tracedir) = m_snapshot_jsn->get( iv_path = |{ path }/ReadLogFile/work| iv_match = 4 ).
+    if x_tracedir is initial.
+      return.
+    endif.
+
+    data(x_tbl_table) = new tty_table( ).
+    try.
+        if path cs 'disp+work'.
+          data(x_trace) = x_tracedir->*[ c_key = |dev_disp.xml| ].
+        elseif path cs 'jstart'.
+          x_trace = x_tracedir->*[ c_key = |dev_jstart.xml| ].
+        else.
+          return.
+        endif.
+
+        data(x_element)     = me->parse_xml( x_trace-c_value ).
+        data(x_processor)   = new cl_xslt_processor( ).
+        x_processor->set_source_node( x_element ).
+        x_processor->set_expression( |//fields/item| ).
+        x_processor->run( progname = space ).
+
+        data(x_nodelist)    = x_processor->get_nodes( ).
+        data(x_iterator)    = x_nodelist->create_iterator( ).
+
+        do 1000 times.
+          data(x_next) = x_iterator->get_next( ).
+          if x_next is not bound.
+            exit.
+          endif.
+
+          data(x_value) = x_next->get_value( ).
+          append value #( inx = sy-index line = x_value ) to x_tbl_table->*.
+        enddo.
+
+        data(x_eezz_table) = new zcl_eezz_table( iv_table = x_tbl_table ).
+        x_trace-c_object   = cast #( x_eezz_table ).
+        rt_table           = cast #( x_eezz_table ).
+      catch cx_sy_itab_line_not_found.
+        return.
+    endtry.
+
+  endmethod.
+
+
   method get_instances.
     types: begin of tstr_line,
              dispstatus   type x length 1,
@@ -77,29 +138,14 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
 
     try.
         " path points to a system name "QD1"
-        x_instance = m_snapshot_jsn->get( iv_path = path ).
+        x_instance = m_snapshot_jsn->get( iv_path = path iv_match = 1 ).
         x_table    = new tty_table( ).
 
+        data(x_jsn_instance) = new zcl_eezz_json( it_json = x_instance ).
+
         loop at x_instance->* into data(x_wa).
-          data x_procstat type x length 1 value 0.
-          data x_status   type x length 1.
-
-          " get the status of all processes
-          " construct path to an instance "QD1/localhost 00"
-          data(x_process_list) = get_process_list( path = |{ path }/{ x_wa-c_key }| ).
-          data(x_tbl_status)   = x_process_list->get_status( ).
-
-          x_status = x_tbl_status->*[ c_key = 'dispstatus' ]-c_status.
-
-          do 4 times.
-            get bit 4 + sy-index of x_status into data(x_val).
-            if x_val = 1.
-              set bit 4 + sy-index of x_procstat.
-              exit.
-            endif.
-          enddo.
-
-          append value #( name = x_wa-c_key dispstatus = x_procstat instancetype = |D0| ) to x_table->*.
+          data(x_statval) = x_jsn_instance->get_value( iv_path = |{ x_wa-c_key }/MonitoringElements/dispstatus| ).
+          append value #( name = x_wa-c_key dispstatus = x_statval instancetype = |D0| ) to x_table->*.
         endloop.
 
         data(x_eezz_table)   = new zcl_eezz_table( iv_table = x_table ).
@@ -120,16 +166,15 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
     types: tty_table type table of tstr_line with key name initial size 0.
 
     data x_tbl_elements type ref to tty_table.
-    data x_instance     type ref to ztty_eezz_json.
+    data x_elements     type ref to ztty_eezz_json.
 
     if m_snapshot_jsn is not bound.
       return.
     endif.
 
-    x_instance = m_snapshot_jsn->get( iv_path = path ).
-    data(x_elements) = x_instance->*[ c_key = |MonitoringElements| ].
-
-    data(x_proclist) = get_process_list( path = path ).
+    x_elements = m_snapshot_jsn->get( iv_path = |{ path }/MonitoringElements| iv_match = 3 ).
+    data(x_statstr)  = x_elements->*[ c_key = |dispstatus| ]-c_value.
+    "---- data(x_proclist) = get_process_list( path = path ).
 
     x_tbl_elements = new tty_table( ).
     x_tbl_elements->* = value #(
@@ -142,14 +187,18 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
       ( _eezz_row_cell_ = |AbapWpTable|    dispstatus = 2 name = |AS ABAP WP Table| )
     ).
 
-    x_elements-c_object = new zcl_eezz_table( iv_table = x_tbl_elements ).
-    rt_table = cast #( x_elements-c_object ).
+    data(x_eezz_table) = new zcl_eezz_table( iv_table = x_tbl_elements ).
+    x_eezz_table->set_status( iv_key = |dispstatus| iv_value = x_statstr ).
+    "-----x_elements->*-c_object = x_eezz_table.
+
+    rt_table = cast #( x_eezz_table ).
   endmethod.
 
 
   method get_process_list.
     types: begin of tstr_line,
              name        type string,
+             fullname    type string,
              description type string,
              dispstatus  type string,
              textstatus  type string,
@@ -161,7 +210,6 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
     types tty_table type table of tstr_line with key name initial size 0.
 
     data x_status     type x length 1.
-    data x_strstatus  type xstring.
     data x_instance   type ref to ztty_eezz_json.
     data x_proclist   type zstr_eezz_json.
     data x_wa_process type tstr_line.
@@ -171,7 +219,8 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
       return.
     endif.
 
-    x_instance = m_snapshot_jsn->get( iv_path = path ).
+    x_instance   = m_snapshot_jsn->get( iv_path = path iv_match = 2 ).
+
     x_proclist = x_instance->*[ c_key = |GetProcessList.xml| ].
 
     if x_proclist-c_object is bound.
@@ -209,27 +258,36 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
         data(x_value) = x_sub_next->get_value( ).
 
         case x_name.
-          when 'name'.        x_wa_process-name        = x_value.
+          when 'name'.
+            split x_value at '.' into table data(x_part).
+                              x_wa_process-name        = x_part[ 1 ].
+                              x_wa_process-fullname    = x_value.
           when 'description'. x_wa_process-description = x_value.
           when 'textstatus'.  x_wa_process-textstatus  = x_value.
           when 'starttime'.   x_wa_process-starttime   = x_value.
           when 'elapsedtime'. x_wa_process-elapsedtime = x_value.
           when 'pid'.         x_wa_process-pid         = x_value.
-          when 'dispstatus'.  x_wa_process-dispstatus  = x_value.
+          when 'dispstatus'.
+            x_wa_process-dispstatus  = x_value.
             case x_value.
-              when 'SAPControl-GRAY'.   set bit 8 of x_status.
-              when 'SAPControl-GREEN'.  set bit 7 of x_status.
-              when 'SAPControl-YELLOW'. set bit 6 of x_status.
-              when 'SAPControl-RED'.    set bit 5 of x_status.
+              when 'SAPControl-GRAY'.   x_status = nmax( val1 = x_status val2 = 1 ).
+              when 'SAPControl-GREEN'.  x_status = nmax( val1 = x_status val2 = 2 ).
+              when 'SAPControl-YELLOW'. x_status = nmax( val1 = x_status val2 = 4 ).
+              when 'SAPControl-RED'.    x_status = nmax( val1 = x_status val2 = 8 ).
             endcase.
         endcase.
       enddo.
       append x_wa_process to x_tbl_table->*.
     enddo.
 
-    x_strstatus         = x_status.
+    " Convert x_status for the status management
+    data x_statval type xstring.
+    data x_statstr type string.
+    x_statval = x_status.
+    x_statstr = x_statval.
+
     data(x_eezz_table)  = new zcl_eezz_table( iv_table = x_tbl_table ).
-    x_eezz_table->set_status( iv_key = |dispstatus| iv_status = x_strstatus ).
+    x_eezz_table->set_status( iv_key = |dispstatus| iv_value = x_statstr ).
 
     x_proclist-c_object = cast #( x_eezz_table ).
     rt_table            = cast #( x_eezz_table ).
@@ -271,6 +329,8 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
 
     if m_snapshot_jsn is bound.
       data(x_jsn_tbl) = m_snapshot_jsn->get( ).
+      data x_system_status type x length 1.
+      data x_statval       type xstring.
 
       loop at x_jsn_tbl->* into data(x_wa).
         clear x_status.
@@ -278,14 +338,18 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
 
         loop at x_system_list->* into data(x_wa_instance).
           data(x_path) = |{ x_wa-c_key }/{ x_wa_instance-c_key }|.
-          data(x_process_list) = get_process_list( path = x_path ).
 
-          data(xtbl_stat) = x_process_list->get_status( ).
-          x_status        = xtbl_stat->*[ c_key = |dispstatus| ]-c_status.
-          m_snapshot_jsn->join( iv_key = |{ x_path }/MonitoringElements| iv_create = abap_true ).
+          data(x_process_list) = get_process_list( path = x_path ).
+          x_statval = x_process_list->get_status( )->get_value( |dispstatus| ).
+          "  get current status + combine status
+          "  get alert treee + combine status
+          m_snapshot_jsn->join( iv_key = |{ x_path }/MonitoringElements/dispstatus| iv_value = |{ x_statval }| iv_create = abap_true ).
+
+          x_status  = x_statval.
+          x_system_status = x_system_status bit-or x_status.
         endloop.
 
-        insert value #( dispstatus = |{ x_status }| name = x_wa-c_key ) into table x_ref_systems->*.
+        insert value #( dispstatus = |{ x_system_status }| name = x_wa-c_key ) into table x_ref_systems->*.
       endloop.
     endif.
 
@@ -314,9 +378,10 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
     types: tty_table type table of tstr_line with key c_inx initial size 0.
     data x_ref_tbl   type ref to tty_table .
     data x_transfer  type i.
-    data x_update    type ztty_update.
 
     try.
+        rv_update = new ztty_update( ).
+
         if m_snapshot_tbl is initial.
           m_snapshot_tbl = new tty_table( ).
           m_transferred  = 0.
@@ -336,16 +401,22 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
           data(x_segments)  = lines( x_ref_tbl->* ).
           data(x_prog_seq)  = ( x_segments + 1 ) * ( x_chunksize / x_filesize ) * 100.
           x_prog_seq        = nmin( val1 = x_prog_seq  val2 = 100 ).
-          x_update = value #(
+          rv_update->* = value #(
             ( c_key = |{ x_progress }.innerHTML|   c_value = |{ x_prog_seq }%| )
             ( c_key = |{ x_progress }.style.width| c_value = |{ x_prog_seq }%| )
           ).
 
           if m_transferred = 0.
             m_transferred  =  x_filesize.
+            clear m_status.
           endif.
           m_transferred    = m_transferred - x_transfered.
-          rv_update        = zcl_eezz_json=>gen_response( ref #( x_update ) ).
+
+          if x_prog_seq = 100.
+            data(x_msg) = new ztty_messages( ).
+            x_msg->*    = value #( ( c_msgtext = |File successfully loaded| c_msgcls = |zcl_eezz_sapctrl| c_msgnum = 0 ) ).
+            "---- insert value #( c_key = |return| c_status = 201 c_ref = x_msg ) into table m_status.
+          endif.
         else.
           x_segments  = lines( x_ref_tbl->* ).
           modify x_ref_tbl->* index x_segments from value #( c_data = iv_message->get_binary( ) ) transporting c_data.

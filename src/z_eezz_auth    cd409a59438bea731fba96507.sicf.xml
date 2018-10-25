@@ -2,20 +2,24 @@
 <abapGit version="v1.0.0" serializer="LCL_OBJECT_SICF" serializer_version="v1.0.0">
  <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
   <asx:values>
-   <URL>/sap/bc/bsp/sap/z_sapctrl_html/</URL>
+   <URL>/sap/bc/abap/z_eezz_auth/</URL>
    <ICFSERVICE>
-    <ICF_NAME>Z_SAPCTRL_HTML</ICF_NAME>
+    <ICF_NAME>Z_EEZZ_AUTH</ICF_NAME>
+    <HTTPCDE500>2</HTTPCDE500>
+    <HTTPCDE401>2</HTTPCDE401>
     <ICFBITMAP>00000000</ICFBITMAP>
-    <ORIG_NAME>z_sapctrl_html</ORIG_NAME>
+    <HTTPCDELPAG>2</HTTPCDELPAG>
+    <HTTPCDENFPAG>2</HTTPCDENFPAG>
+    <ORIG_NAME>z_eezz_auth</ORIG_NAME>
    </ICFSERVICE>
    <ICFDOCU>
-    <ICF_NAME>Z_SAPCTRL_HTML</ICF_NAME>
+    <ICF_NAME>Z_EEZZ_AUTH</ICF_NAME>
     <ICF_LANGU>E</ICF_LANGU>
-    <ICF_DOCU>sap control monitor</ICF_DOCU>
+    <ICF_DOCU>test</ICF_DOCU>
    </ICFDOCU>
    <ICFHANDLER_TABLE>
     <ICFHANDLER>
-     <ICF_NAME>Z_SAPCTRL_HTML</ICF_NAME>
+     <ICF_NAME>Z_EEZZ_AUTH</ICF_NAME>
      <ICFORDER>01</ICFORDER>
      <ICFTYP>A</ICFTYP>
      <ICFHANDLER>ZCL_EEZZ_AGENT</ICFHANDLER>
