@@ -29,6 +29,12 @@
     </SEOCOMPOTX>
     <SEOCOMPOTX>
      <CLSNAME>ZCL_SAPCONTROL</CLSNAME>
+     <CMPNAME>GET_LOGFILES</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>get the process list of an instance</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CLSNAME>ZCL_SAPCONTROL</CLSNAME>
      <CMPNAME>GET_PROCESS_LIST</CMPNAME>
      <LANGU>E</LANGU>
      <DESCRIPT>get the process list of an instance</DESCRIPT>
@@ -38,6 +44,18 @@
      <CMPNAME>GET_SYSTEMS</CMPNAME>
      <LANGU>E</LANGU>
      <DESCRIPT>Return known systems</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CLSNAME>ZCL_SAPCONTROL</CLSNAME>
+     <CMPNAME>GET_VERSION_INFO</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>get the process list of an instance</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CLSNAME>ZCL_SAPCONTROL</CLSNAME>
+     <CMPNAME>LOGIN</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Loggin for sapcontrol</DESCRIPT>
     </SEOCOMPOTX>
     <SEOCOMPOTX>
      <CLSNAME>ZCL_SAPCONTROL</CLSNAME>
@@ -62,6 +80,12 @@
      <CMPNAME>PARSE_XML</CMPNAME>
      <LANGU>E</LANGU>
      <DESCRIPT>parse xml stream</DESCRIPT>
+    </SEOCOMPOTX>
+    <SEOCOMPOTX>
+     <CLSNAME>ZCL_SAPCONTROL</CLSNAME>
+     <CMPNAME>SAVE_LOGFILES</CMPNAME>
+     <LANGU>E</LANGU>
+     <DESCRIPT>Saves selected files</DESCRIPT>
     </SEOCOMPOTX>
    </DESCRIPTIONS>
   </asx:values>
