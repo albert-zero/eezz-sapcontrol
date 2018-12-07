@@ -1,71 +1,71 @@
-class ZCL_SAPCONTROL definition
+class zcl_sapcontrol definition
   public
-  inheriting from ZCL_EEZZ_TABLE
+  inheriting from zcl_eezz_table
   final
   create public .
 
-public section.
+  public section.
 
-  aliases DO_SELECT
-    for ZIF_EEZZ_TABLE~DO_SELECT .
+    aliases do_select
+      for zif_eezz_table~do_select .
 
-  methods LOGIN
-    importing
-      !PATH type STRING
-      !USER type STRING
-      !PASSWORD type STRING .
-  methods SAVE_LOGFILES
-    importing
-      !PATH type STRING optional
-      !FILES type STRING optional
-      !UPDATE type STRING optional
-      !PROGRESS type STRING optional
-      !MANAGER type ref to IF_APC_WSP_MESSAGE_MANAGER optional
-      !MESSAGE type ref to IF_APC_WSP_MESSAGE optional .
-  methods GET_DEVTRACE
-    importing
-      !PATH type STRING
-    returning
-      value(RT_TABLE) type ref to ZCL_EEZZ_TABLE .
-  methods GET_INSTANCES
-    importing
-      !PATH type STRING
-    returning
-      value(RT_TABLE) type ref to ZCL_EEZZ_TABLE .
-  methods GET_LOGFILES
-    importing
-      !PATH type STRING
-    returning
-      value(RT_TABLE) type ref to ZCL_EEZZ_TABLE .
-  methods GET_MONITOR_ELEMENTS
-    importing
-      !PATH type STRING
-    returning
-      value(RT_TABLE) type ref to ZCL_EEZZ_TABLE .
-  methods GET_PROCESS_LIST
-    importing
-      !PATH type STRING
-    returning
-      value(RT_TABLE) type ref to ZCL_EEZZ_TABLE .
-  methods GET_SYSTEMS
-    returning
-      value(RT_TABLE) type ref to ZCL_EEZZ_TABLE .
-  methods GET_VERSION_INFO
-    importing
-      !PATH type STRING
-    returning
-      value(RT_TABLE) type ref to ZCL_EEZZ_TABLE .
-  methods CONSTRUCTOR
-    importing
-      !IV_TABLE type ref to DATA optional
-      !TABLE_NAME type STRING optional .
+    methods login
+      importing
+        !path     type string
+        !user     type string
+        !password type string .
+    methods save_logfiles
+      importing
+        !path     type string optional
+        !files    type string optional
+        !update   type string optional
+        !progress type string optional
+        !manager  type ref to if_apc_wsp_message_manager optional
+        !message  type ref to if_apc_wsp_message optional .
+    methods get_devtrace
+      importing
+        !path           type string
+      returning
+        value(rt_table) type ref to zcl_eezz_table .
+    methods get_instances
+      importing
+        !path           type string
+      returning
+        value(rt_table) type ref to zcl_eezz_table .
+    methods get_logfiles
+      importing
+        !path           type string
+      returning
+        value(rt_table) type ref to zcl_eezz_table .
+    methods get_monitor_elements
+      importing
+        !path           type string
+      returning
+        value(rt_table) type ref to zcl_eezz_table .
+    methods get_process_list
+      importing
+        !path           type string
+      returning
+        value(rt_table) type ref to zcl_eezz_table .
+    methods get_systems
+      returning
+        value(rt_table) type ref to zcl_eezz_table .
+    methods get_version_info
+      importing
+        !path           type string
+      returning
+        value(rt_table) type ref to zcl_eezz_table .
+    methods constructor
+      importing
+        !iv_table   type ref to data optional
+        !table_name type string optional .
 
-  methods ZIF_EEZZ_TABLE~DO_SELECT
-    redefinition .
-  methods ZIF_EEZZ_TABLE~ON_DOWNLOAD
-    redefinition .
-  methods ZIF_EEZZ_TABLE~PREPARE_DOWNLOAD
-    redefinition .
+    methods zif_eezz_table~do_select
+        redefinition .
+    methods zif_eezz_table~on_download
+        redefinition .
+    methods zif_eezz_table~prepare_download
+        redefinition .
   protected section.
   private section.
 
@@ -114,6 +114,8 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
     data x_tracepath  type string.
     data x_tracedir   type ref to ztty_eezz_json.
     data x_sapcontrol type ref to co_sapcontrol_factory.
+    data x_path       type string.
+    data x_soap_data  type zstr_eezz_json.
 
     try.
         " Find the controlling structures for the given path
@@ -124,7 +126,12 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
         data(x_sys_table) = x_sys_json->m_parent-c_object.
 
         data(x_instance)  = x_sys_json->get( iv_path = path iv_match = 2 ).
-        data(x_inst_path) = x_sys_json->m_path.
+        x_path            = x_sys_json->m_path.
+        x_relpath         = x_path.
+        x_sapcontrol     ?= x_sys_json->get_control( iv_path = x_path ).
+
+        data(x_traces)    = x_sys_json->get( iv_path = |{ x_path }/ReadLogFile/work| ).
+        x_path            = x_sys_json->m_path.
 
         if path cs 'disp+work'.
           x_filename = 'dev_disp'.
@@ -134,12 +141,8 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
           return.
         endif.
 
-        data(x_dictionary) = cast zcl_eezz_table( x_sys_table )->get_dictionary( ).
-        if line_exists( x_dictionary->*[ c_key = 'sapcontrol' ] ).
-          x_sapcontrol ?= x_dictionary->*[ c_key = 'sapcontrol' ]-c_object.
-        else.
-          x_tracedir    = x_sys_json->get( iv_path = |{ path }/ReadLogFile/work| iv_match = 5 ).
-          x_tracepath   = x_sys_json->m_path.
+        if x_sapcontrol is not bound.
+          x_soap_data   = x_traces->*[ c_key = |{ x_filename }.xml| ].
         endif.
       catch cx_root into data(x_exception).
         zcl_eezz_message=>add( iv_status = 500 iv_key = 'GetDevTrace' iv_exception = x_exception ).
@@ -150,12 +153,16 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
         xtbl_node = new ttbl_table( ).
 
         if x_sapcontrol is bound.
-          return.
+
         endif.
 
-        if x_tracedir is not initial.
-          data(x_trace)     = x_tracedir->*[ c_key = |{ x_filename }.xml| ].
-          data(x_element)   = me->parse_xml( x_trace-c_value ).
+        if x_soap_data is not initial.
+          rt_table ?= x_traces->*[ c_key = |{ x_filename }.xml| ]-c_object.
+          if rt_table is bound.
+            return.
+          endif.
+
+          data(x_element)   = me->parse_xml( x_soap_data-c_value ).
           data(x_processor) = new cl_xslt_processor( ).
           x_processor->set_source_node( x_element ).
           x_processor->set_expression( |//fields/item| ).
@@ -164,7 +171,7 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
           data(x_nodelist)    = x_processor->get_nodes( ).
           data(x_iterator)    = x_nodelist->create_iterator( ).
 
-          do 1000 times.
+          do 10000 times.
             data(x_next) = x_iterator->get_next( ).
             if x_next is not bound.
               exit.
@@ -173,7 +180,7 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
             data(x_value) = x_next->get_value( ).
             append value #( inx = sy-index line = x_value ) to xtbl_node->*.
           enddo.
-
+          clear x_soap_data-c_value.
         endif.
       catch cx_sy_itab_line_not_found.
         return.
@@ -181,9 +188,13 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
 
     try.
         data(x_eezz_table) = new zcl_eezz_table( iv_table =  xtbl_node ).
-        x_dictionary       = x_eezz_table->get_dictionary( ).
-        modify table x_dictionary->* from value #( c_key = 'table_key'          c_value  = |{ x_inst_path }/work/{ x_filename }| ).
-        modify table x_tracedir->*   from value #( c_key = |{ x_filename }.xml| c_object = x_eezz_table ) transporting c_object.
+        data(x_dictionary) = x_eezz_table->get_dictionary( ).
+
+        x_dictionary->*[ c_key = 'table_key'  ]-c_value = |{ x_relpath }/work/{ x_filename }|.
+        x_dictionary->*[ c_key = 'table_path' ]-c_value = |{ x_path }/{ x_filename }|.
+        x_dictionary->*[ c_key = 'table_size' ]-c_value = |{ lines( xtbl_node->* ) }|.
+        x_traces->*[ c_key = |{ x_filename }.xml| ]-c_object = x_eezz_table.
+
         rt_table = cast #( x_eezz_table ).
       catch cx_root into x_exception.
         zcl_eezz_message=>add( iv_status = 500 iv_key = 'GetDevTrace' iv_exception = x_exception ).
@@ -206,10 +217,6 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
     data x_instlist    type ref to zstr_eezz_json.
     data x_wa_instance type tstr_line.
 
-    if m_snapshot_jsn is not bound.
-      return.
-    endif.
-
     try.
         " path points to a system name "QD1"
         data(x_systems)      = m_snapshot_jsn->get( iv_path = |Systems| ).
@@ -221,16 +228,17 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
         x_jsn_instance = new zcl_eezz_json( it_json = x_instance ).
 
         loop at x_instance->* into data(x_wa).
-          data(x_statval) = x_jsn_instance->get_status( iv_path = |{ x_wa-c_key }/MonitoringElements| ).
+          data(x_statval) = x_jsn_instance->get_status( iv_path = x_wa-c_key  iv_key = |MonitoringElements| ).
           if x_statval is not initial.
             append value #( name = x_wa-c_key dispstatus = x_statval instancetype = |D0| ) to x_table->*.
           endif.
         endloop.
 
-        data(x_eezz_table)   = new zcl_eezz_table( iv_table = x_table ).
+        data(x_eezz_table)   = new zcl_sapcontrol( iv_table = x_table ).
         data(x_dictionary)   = x_eezz_table->get_dictionary( ).
 
-        modify table x_dictionary->* from value #( c_key = 'table_key' c_value = x_path ).
+        modify table x_dictionary->* from value #( c_key = 'table_path' c_value = x_path ).
+        modify table x_dictionary->* from value #( c_key = 'table_key'  c_value = x_path ).
         rt_table             = x_eezz_table.
 
       catch cx_sy_itab_line_not_found.
@@ -264,16 +272,10 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
 
         data(x_instance)   = x_sys_json->get( iv_path = path iv_match = 2 ).
         data(x_path)       = x_sys_json->m_path.
+        x_sapcontrol      ?= x_sys_json->get_control( iv_path = x_path ).
 
-        if x_sys_table is not bound.
-          return.
-        endif.
-
-        data(x_dictionary) = cast zcl_eezz_table( x_sys_table )->get_dictionary( ).
-        if line_exists( x_dictionary->*[ c_key = 'sapcontrol' ] ).
-          x_sapcontrol ?= x_dictionary->*[ c_key = 'sapcontrol' ]-c_object.
-        else.
-          x_soap_data   = x_instance->*[ c_key = |ListLogFiles.xml| ].
+        if x_sapcontrol is not bound.
+          x_soap_data = x_instance->*[ c_key = |ListLogFiles.xml| ].
         endif.
 
       catch cx_root into data(x_exception).
@@ -344,8 +346,9 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
 
     try.
         data(x_eezz_table) = new zcl_eezz_table( iv_table = xtbl_node ).
-        x_dictionary       = x_eezz_table->get_dictionary( ).
+        data(x_dictionary) = x_eezz_table->get_dictionary( ).
         modify table x_dictionary->* from value #( c_key = 'table_path' c_value = x_path ).
+        modify table x_dictionary->* from value #( c_key = 'table_key'  c_value = x_path ).
 
         " xtbl_node->c_object   = cast #( x_eezz_table ).
         rt_table             = cast #( x_eezz_table ).
@@ -369,13 +372,14 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
     data x_tbl_elements type ref to tty_table.
     data x_elements     type ref to ztty_eezz_json.
 
-    if m_snapshot_jsn is not bound.
-      return.
-    endif.
+    data(x_sys_root)   = m_snapshot_jsn->get( iv_path = |Systems| ).
+    data(x_sys_json)   = new zcl_eezz_json( it_json = x_sys_root ).
 
-    x_elements      = m_snapshot_jsn->get( iv_path = |{ path }/MonitoringElements| iv_match = 3 ).
-    data(x_path)    = m_snapshot_jsn->m_path.
-    data(x_statstr) = m_snapshot_jsn->m_status.
+
+    x_elements      = x_sys_json->get( iv_path = path  iv_match = 2 ).
+    data(x_path)    = x_sys_json->m_path.
+    data(x_statstr) = x_sys_json->get_status( iv_path = x_path iv_key = 'MonitoringElements' ).
+    .
     "---- data(x_proclist) = get_process_list( path = path ).
 
     x_tbl_elements = new tty_table( ).
@@ -435,16 +439,10 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
         x_instance         = x_sys_json->get( iv_path = path iv_match = 2 ).
         data(x_proc_root)  = x_sys_json->m_parent.
         data(x_path)       = x_sys_json->m_path.
+        x_sapcontrol      ?= x_sys_json->get_control( x_path ).
 
-        if x_sys_table is not bound.
-          return.
-        endif.
-
-        data(x_dictionary) = cast zcl_eezz_table( x_sys_table )->get_dictionary( ).
-        if line_exists( x_dictionary->*[ c_key = 'sapcontrol' ] ).
-          x_sapcontrol ?= x_dictionary->*[ c_key = 'sapcontrol' ]-c_object.
-        else.
-          x_proclist    = x_instance->*[ c_key = |GetProcessList.xml| ].
+        if  x_sapcontrol is not bound.
+          x_proclist = x_instance->*[ c_key = |GetProcessList.xml| ].
         endif.
 
       catch cx_root into data(x_exception).
@@ -523,7 +521,8 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
                 when 'starttime'.   x_wa_process-starttime   = x_value.
                 when 'elapsedtime'. x_wa_process-elapsedtime = x_value.
                 when 'pid'.         x_wa_process-pid         = x_value.
-                when 'dispstatus'.  x_wa_process-dispstatus  = x_value.
+                when 'dispstatus'.
+                  x_wa_process-dispstatus  = x_value.
                   case x_value.
                     when 'SAPControl-GRAY'.   x_status = nmax( val1 = x_status val2 = 1 ).
                     when 'SAPControl-GREEN'.  x_status = nmax( val1 = x_status val2 = 2 ).
@@ -549,11 +548,11 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
           x_statval = x_status.
           x_statstr = x_statval.
 
-          data(x_eezz_table) = new zcl_eezz_table( iv_table = xtbl_node ).
-          x_dictionary       = x_eezz_table->get_dictionary( ).
+          data(x_eezz_table) = new zcl_sapcontrol( iv_table = xtbl_node ).
+          data(x_dictionary) = x_eezz_table->get_dictionary( ).
           modify table x_dictionary->* from value #( c_key = 'table_key' c_value = x_path ).
 
-          x_sys_json->join( iv_key = |{ x_path }/MonitoringElements/| iv_status = |{ x_status }| iv_create = abap_true ).
+          x_sys_json->join( iv_path = x_path iv_key = |MonitoringElements| iv_status = |{ x_status }| iv_create = abap_true ).
           modify table x_instance->* from value #( c_key = |GetProcessList.xml| c_object = x_eezz_table ) transporting c_object.
           rt_table = cast #( x_eezz_table ).
         endif.
@@ -597,13 +596,14 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
           data(x_dictionary)  = cast zcl_eezz_table( <fs_wa>-c_object )->get_dictionary( ).
           data(x_system_list) = cast ztty_eezz_json( <fs_wa>-c_ref ).
           modify table x_dictionary->* from value #( c_key = 'table_key' c_value = <fs_wa>-c_key ).
+          "-----> modify table x_dictionary->* from value #( c_key = 'tree_path' c_value = |System/{ <fs_wa>-c_key }| ).
 
           if x_system_list is not initial.
             loop at x_system_list->* into data(x_wa_instance).
               data(x_path) = |{ <fs_wa>-c_key }/{ x_wa_instance-c_key }|.
 
               data(x_process_list) = get_process_list( path = x_path ).
-              x_statval            = x_tmp_json->get_status( iv_path = |{ x_path }/MonitoringElements/|  ).
+              x_statval            = x_tmp_json->get_status( iv_path =  x_path iv_key = |MonitoringElements|  ).
               x_statcal            = x_statcal bit-or x_statval.
             endloop.
           else.
@@ -639,27 +639,30 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
     types ttbl_table   type table of tstr_line with key filename initial size 0.
     data  xtbl_node    type ref to ttbl_table.
     data  xtbl_line    type tstr_line.
+    data  x_path       type string.
     data  x_sapcontrol type ref to co_sapcontrol_factory.
     data  x_request    type ssiget_version_info_request.
     data  x_response   type ssiget_version_info_response.
     data  x_system     type ref to ztty_eezz_json.
+    data  x_instance   type ref to ztty_eezz_json.
     data  x_soap_data  type zstr_eezz_json.
+    data  x_dictionary type ref to ztty_dictionary.
 
     try.
+        " Find the controlling structures for the given path
         data(x_sys_root)   = m_snapshot_jsn->get( iv_path = |Systems| ).
         data(x_sys_json)   = new zcl_eezz_json( it_json = x_sys_root ).
 
         x_sys_root         = x_sys_json->get( iv_path = path iv_match = 1 ).
         data(x_sys_table)  = x_sys_json->m_parent-c_object.
 
-        data(x_instance)   = x_sys_json->get( iv_path = path iv_match = 2 ).
-        data(x_path)       = x_sys_json->m_path.
+        x_instance         = x_sys_json->get( iv_path = path iv_match = 2 ).
+        data(x_proc_root)  = x_sys_json->m_parent.
+        x_path             = x_sys_json->m_path.
+        x_sapcontrol      ?= x_sys_json->get_control( x_path ).
 
-        data(x_dictionary) = cast zcl_eezz_table( x_sys_table )->get_dictionary( ).
-        if line_exists( x_dictionary->*[ c_key = 'sapcontrol' ] ).
-          x_sapcontrol ?= x_dictionary->*[ c_key = 'sapcontrol' ]-c_object.
-        else.
-          x_soap_data   = x_instance->*[ c_key = |GetVersionInfo.xml| ].
+        if  x_sapcontrol is not bound.
+          x_soap_data = x_instance->*[ c_key = |GetVersionInfo.xml| ].
         endif.
       catch cx_root into data(x_exception).
         zcl_eezz_message=>add( iv_status = 500 iv_key = 'GetVersionInfo' iv_exception = x_exception ).
@@ -680,6 +683,11 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
         endif.
 
         if x_soap_data is not initial.
+          rt_table ?= x_instance->*[ c_key = |GetVersionInfo.xml| ]-c_object.
+          if rt_table is bound.
+            return.
+          endif.
+
           data(x_element)   = me->parse_xml( x_soap_data-c_value ).
           data(x_processor) = new cl_xslt_processor( ).
           x_processor->set_source_node( x_element ).
@@ -715,6 +723,7 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
             enddo.
             append xtbl_line to xtbl_node->*.
           enddo.
+          clear x_soap_data-c_value.
         endif.
       catch cx_ai_system_fault cx_root into x_exception.
         zcl_eezz_message=>add( iv_status = 500 iv_key = 'GetVersionInfo' iv_exception = x_exception ).
@@ -724,8 +733,11 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
     try.
         data(x_eezz_table) = new zcl_eezz_table( iv_table = xtbl_node ).
         x_dictionary = x_eezz_table->get_dictionary( ).
-        modify table x_dictionary->* from value #( c_key = 'table_path' c_value = x_path ).
-        modify table x_dictionary->* from value #( c_key = 'table_key'  c_value = x_path ).
+        x_dictionary->*[ c_key = 'table_path' ]-c_value = x_path.
+        x_dictionary->*[ c_key = 'table_key'  ]-c_value = x_path.
+        x_dictionary->*[ c_key = 'table_size' ]-c_value = |{ lines( xtbl_node->* ) }|.
+        x_instance->*[ c_key = |GetVersionInfo.xml| ]-c_object = x_eezz_table.
+
         rt_table     = cast #( x_eezz_table ).
       catch cx_root.
         zcl_eezz_message=>add( iv_status = 500 iv_key = 'GetVersionInfo' iv_exception = x_exception ).
@@ -738,8 +750,11 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
   method login.
     data rc type i.
     data x_system       type ref to ztty_eezz_json.
+    data x_instance     type ref to ztty_eezz_json.
     data x_status       type xstring.
     data x_inst_status  type xstring.
+    data x_inst_number  type i.
+    data x_path         type string.
     data x_sapcontrol   type ref to co_sapcontrol_factory.
     data x_system_name  type spfl_parameter_value.
     data x_system_host  type spfl_parameter_value.
@@ -755,22 +770,25 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
       rc  = cl_spfl_profile_parameter=>get_value( exporting name = 'SAPSYSTEMNAME' importing value = x_system_name  ).
       rc  = cl_spfl_profile_parameter=>get_value( exporting name = 'SAPLOCALHOST'  importing value = x_system_host  ).
       rc  = cl_spfl_profile_parameter=>get_value( exporting name = 'SAPSYSTEM'     importing value = x_system_nr  ).
+      x_inst_number = x_system_nr.
 
-      x_system = x_sys_json->get( iv_path = x_system_name ).
+      x_path      = |{ x_system_name }/{ x_system_host } { x_inst_number width = 2 align = right pad = '0' }|.
+      x_sys_json->join( iv_path = x_path iv_key = |MonitoringElements| iv_status = |{ 0 }| iv_create = abap_true ).
+
+      x_system    = x_sys_json->get( iv_path = x_system_name ).
+      x_instance  = x_sys_json->get( iv_path = x_path ).
     else.
-      x_system = x_sys_json->get( iv_path = path iv_match = 1 ).
+      x_system    = x_sys_json->get( iv_path = path iv_match = 1 ).
+      x_instance  = x_sys_json->get( iv_path = path iv_match = 2 ).
+      x_path      = x_sys_json->m_path.
+
+      x_sys_json->join( iv_path = x_path iv_key = |MonitoringElements| iv_status = |{ 0 }| iv_create = abap_true ).
     endif.
 
-    try.
-        data(x_eezz_table) = x_sys_json->m_parent-c_object.
-        if x_eezz_table is not bound.
-          return.
-        endif.
-        data(x_dictionary) = cast zcl_eezz_table( x_eezz_table )->get_dictionary( ).
 
-        if line_exists( x_dictionary->*[ c_key = 'sapcontrol' ] ).
-          x_sapcontrol ?= x_dictionary->*[ c_key = 'sapcontrol' ]-c_object.
-        else.
+    try.
+        x_sapcontrol ?= x_sys_json->get_control( iv_path = x_path ).
+        if x_sapcontrol is not bound.
           create object x_sapcontrol
             exporting
               iv_host        = x_system_host
@@ -779,7 +797,7 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
               iv_password    = password
               iv_protocol    = 'http'
               iv_sapinternal = ''.
-          insert value #( c_key = 'sapcontrol' c_object = x_sapcontrol ) into table x_dictionary->*.
+          x_sys_json->join( iv_key = x_path iv_control = x_sapcontrol ).
         endif.
 
         x_sapcontrol->mo_public_proxy->get_system_instance_list( exporting input = xinp_inst_list  importing output = xout_inst_list ).
@@ -792,8 +810,22 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
             when 'SAPControl-RED'.    x_status = nmax( val1 = x_status val2 = '08' ).
           endcase.
 
-          data(x_path) = |{ x_system_name }/{ x_wainst-hostname } { x_wainst-instance_nr }|.
-          x_sys_json->join( iv_key = |{ x_path }/MonitoringElements/| iv_status = |{ x_status }| iv_create = abap_true ).
+          x_path = |{ x_system_name }/{ x_wainst-hostname } { x_wainst-instance_nr width = 2 align = right pad = '0' }|.
+          x_sys_json->join( iv_path = x_path iv_key = |MonitoringElements| iv_status = |{ x_status }| iv_create = abap_true ).
+
+          x_sapcontrol ?= x_sys_json->get_control( iv_path = x_path ).
+          if x_sapcontrol is not bound.
+            create object x_sapcontrol
+              exporting
+                iv_host        = x_wainst-hostname
+                iv_nr          = |{ x_wainst-instance_nr width = 2 align = right pad = '0' }|
+                iv_user        = user
+                iv_password    = password
+                iv_protocol    = 'http'
+                iv_sapinternal = ''.
+            "x_inst_root-c_control = x_sapcontrol.
+            x_sys_json->join( iv_key = x_path iv_control = x_sapcontrol ).
+          endif.
         endloop.
       catch cx_root into data(x_exception).
         zcl_eezz_message=>add( iv_status = 500 iv_key = 'login' iv_exception = x_exception ).
@@ -816,7 +848,7 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
   endmethod.
 
 
-  method SAVE_LOGFILES.
+  method save_logfiles.
     types: begin of tstr_struct,
              filename type string,
              size     type i,
@@ -927,19 +959,20 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
   method zif_eezz_table~do_select.
     me->m_selected = |{ index }|.
 
-    FIELD-SYMBOLS <fs_table> type ANY TABLE.
-    field-SYMBOLS <fs_line> type any.
+    field-symbols <fs_table> type any table.
+    field-symbols <fs_line> type any.
 
     assign me->mt_table->* to <fs_table>.
 
-    loop at <fs_table> ASSIGNING <fs_line>.
+    loop at <fs_table> assigning <fs_line>.
       if sy-tabix eq index.
-         data(x_hash) = me->get_hash( iv_line = <fs_line> iv_clear = abap_true ).
-         exit.
+        data(x_hash) = me->get_hash( iv_line = <fs_line> iv_clear = abap_true ).
+        exit.
       endif.
     endloop.
 
-    modify table mt_dictionary from value #( c_key = 'table_key' c_value = x_hash ).
+    modify table mt_dictionary from value #( c_key = 'table_key'     c_value = x_hash ).
+    modify table mt_dictionary from value #( c_key = 'table_current' c_value = x_hash ).
     rt_eezz_table = me.
   endmethod.
 
@@ -967,12 +1000,12 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
     try.
         if iv_message->get_message_type( ) = iv_message->co_message_type_text.
           data(x_json)       = new zcl_eezz_json( iv_json = iv_message->get_text( ) ).
-          data(x_progress)   = x_json->get_value( |progress| ).
-          data(x_filesize)   = x_json->get_value( |file/size| ).
-          data(x_transfered) = x_json->get_value( |file/chunkSize| ).
-          data(x_filename)   = x_json->get_value( |file/name| ).
-          data(x_chunksize)  = x_json->get_value( |chunkSize| ).
-          data(x_sequence)   = x_json->get_value( |file/sequence| ).
+          data(x_progress)   = x_json->get_value( iv_key = |progress| ).
+          data(x_filesize)   = x_json->get_value( iv_key = |size|      iv_path = |file| ).
+          data(x_transfered) = x_json->get_value( iv_key = |chunkSize| iv_path = |file| ).
+          data(x_filename)   = x_json->get_value( iv_key = |name|      iv_path = |file| ).
+          data(x_chunksize)  = x_json->get_value( iv_key = |chunkSize| ).
+          data(x_sequence)   = x_json->get_value( iv_key = |sequence|  iv_path = |file| ).
 
           append value #( c_inx = x_sequence ) to x_ref_tbl->*.
           data(x_segments)  = lines( x_ref_tbl->* ).
@@ -1072,7 +1105,7 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
           data(x_sys_table) = new zcl_eezz_table( ).
           x_dictionary      = x_sys_table->get_dictionary( ).
           modify table x_dictionary->* from value #( c_key = 'table_type' c_value = m_snapshot_name ).
-          m_snapshot_jsn->join( iv_key = |Systems/{ xwa_sys-c_key }| it_json = cast #( xwa_sys-c_ref ) iv_object = x_sys_table ).
+          m_snapshot_jsn->join( iv_path = |Systems| iv_key = xwa_sys-c_key it_json = cast #( xwa_sys-c_ref ) iv_object = x_sys_table ).
         endloop.
 
         clear m_snapshot_zip.
@@ -1087,8 +1120,7 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
   method zif_eezz_table~prepare_download.
 
     try.
-        super->zif_eezz_table~prepare_download( iv_message ).
-
+        rv_request     = super->zif_eezz_table~prepare_download( iv_message ).
         m_snapshot_zip = new cl_abap_string_x_writer( ).
         clear m_snapshot_tbl.
 
