@@ -39,6 +39,19 @@
     <item>
      <ATTRIBUTES>
       <APPLNAME>Z_SAPCTRL_HTML</APPLNAME>
+      <PAGEKEY>SNAKE.HTM</PAGEKEY>
+      <PAGENAME>snake.htm</PAGENAME>
+      <MIMETYPE>text/html</MIMETYPE>
+      <IS_START_PAGE>X</IS_START_PAGE>
+      <LAYOUTLANGU>E</LAYOUTLANGU>
+      <VERSION>A</VERSION>
+      <LANGU>E</LANGU>
+      <DESCRIPT>snakke</DESCRIPT>
+     </ATTRIBUTES>
+    </item>
+    <item>
+     <ATTRIBUTES>
+      <APPLNAME>Z_SAPCTRL_HTML</APPLNAME>
       <PAGEKEY>UPLOAD.HTM</PAGEKEY>
       <PAGENAME>upload.htm</PAGENAME>
       <MIMETYPE>text/html</MIMETYPE>

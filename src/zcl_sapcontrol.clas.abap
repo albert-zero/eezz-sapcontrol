@@ -1,85 +1,94 @@
-class zcl_sapcontrol definition
+class ZCL_SAPCONTROL definition
   public
-  inheriting from zcl_eezz_table
+  inheriting from ZCL_EEZZ_TABLE
   final
   create public .
 
-  public section.
+public section.
 
-    aliases do_select
-      for zif_eezz_table~do_select .
+  aliases DO_SELECT
+    for ZIF_EEZZ_TABLE~DO_SELECT .
 
-    methods login
-      importing
-        !path     type string
-        !user     type string
-        !password type string .
-    methods save_logfiles
-      importing
-        !path     type string optional
-        !files    type string optional
-        !update   type string optional
-        !progress type string optional
-        !manager  type ref to if_apc_wsp_message_manager optional
-        !message  type ref to if_apc_wsp_message optional .
-    methods get_devtrace
-      importing
-        !path           type string
-      returning
-        value(rt_table) type ref to zcl_eezz_table .
-    methods get_instances
-      importing
-        !path           type string
-      returning
-        value(rt_table) type ref to zcl_eezz_table .
-    methods get_logfiles
-      importing
-        !path           type string
-      returning
-        value(rt_table) type ref to zcl_eezz_table .
-    methods get_monitor_elements
-      importing
-        !path           type string
-      returning
-        value(rt_table) type ref to zcl_eezz_table .
-    methods get_process_list
-      importing
-        !path           type string
-      returning
-        value(rt_table) type ref to zcl_eezz_table .
-    methods get_systems
-      returning
-        value(rt_table) type ref to zcl_eezz_table .
-    methods get_version_info
-      importing
-        !path           type string
-      returning
-        value(rt_table) type ref to zcl_eezz_table .
-    methods constructor
-      importing
-        !iv_table   type ref to data optional
-        !table_name type string optional .
+  methods SHOW_FILE
+    importing
+      !PATH type STRING
+    returning
+      value(RT_TABLE) type ref to ZCL_EEZZ_TABLE .
+  methods LOGIN
+    importing
+      !PATH type STRING
+      !USER type STRING
+      !PASSWORD type STRING .
+  methods SAVE_LOGFILES
+    importing
+      !PATH type STRING optional
+      !FILES type STRING optional
+      !UPDATE type STRING optional
+      !PROGRESS type STRING optional
+      !MANAGER type ref to IF_APC_WSP_MESSAGE_MANAGER optional
+      !MESSAGE type ref to IF_APC_WSP_MESSAGE optional .
+  methods GET_DEVTRACE
+    importing
+      !PATH type STRING
+    returning
+      value(RT_TABLE) type ref to ZCL_EEZZ_TABLE .
+  methods GET_INSTANCES
+    importing
+      !PATH type STRING
+    returning
+      value(RT_TABLE) type ref to ZCL_EEZZ_TABLE .
+  methods GET_LOGFILES
+    importing
+      !PATH type STRING
+    returning
+      value(RT_TABLE) type ref to ZCL_EEZZ_TABLE .
+  methods GET_MONITOR_ELEMENTS
+    importing
+      !PATH type STRING
+    returning
+      value(RT_TABLE) type ref to ZCL_EEZZ_TABLE .
+  methods GET_PROCESS_LIST
+    importing
+      !PATH type STRING
+    returning
+      value(RT_TABLE) type ref to ZCL_EEZZ_TABLE .
+  methods GET_SYSTEMS
+    returning
+      value(RT_TABLE) type ref to ZCL_EEZZ_TABLE .
+  methods GET_VERSION_INFO
+    importing
+      !PATH type STRING
+    returning
+      value(RT_TABLE) type ref to ZCL_EEZZ_TABLE .
+  methods CONSTRUCTOR
+    importing
+      !IV_TABLE type ref to DATA optional
+      !TABLE_NAME type STRING optional .
 
-    methods zif_eezz_table~do_select
-        redefinition .
-    methods zif_eezz_table~on_download
-        redefinition .
-    methods zif_eezz_table~prepare_download
-        redefinition .
+  methods ZIF_EEZZ_TABLE~DO_SELECT
+    redefinition .
+  methods ZIF_EEZZ_TABLE~ON_DOWNLOAD
+    redefinition .
+  methods ZIF_EEZZ_TABLE~PREPARE_DOWNLOAD
+    redefinition .
   protected section.
-  private section.
+private section.
 
-    data m_snapshot_name type string .
-    data m_transferred type i .
-    data m_snapshot_tbl type ref to data .
-    data m_snapshot_zip type ref to cl_abap_string_x_writer .
-    data m_snapshot_jsn type ref to zcl_eezz_json .
+  data M_CHUNKSIZE type I .
+  data M_SEQUENCE type I .
+  data M_OFFSET type I .
+  data M_SNAPSHOT_RES type ref to DATA .
+  data M_SNAPSHOT_NAME type STRING .
+  data M_TRANSFERRED type I .
+  data M_SNAPSHOT_TBL type ref to DATA .
+  data M_SNAPSHOT_ZIP type ref to CL_ABAP_STRING_X_WRITER .
+  data M_SNAPSHOT_JSN type ref to ZCL_EEZZ_JSON .
 
-    methods parse_xml
-      importing
-        !iv_xmlstream      type string
-      returning
-        value(rv_document) type ref to if_ixml_document .
+  methods PARSE_XML
+    importing
+      !IV_XMLSTREAM type STRING
+    returning
+      value(RV_DOCUMENT) type ref to IF_IXML_DOCUMENT .
 ENDCLASS.
 
 
@@ -101,21 +110,9 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
 
 
   method get_devtrace.
-    types: begin of tstr_line,
-             inx  type i,
-             line type string,
-           end of tstr_line.
-
-    types ttbl_table  type table of tstr_line with key inx initial size 0.
-    data  xtbl_node   type ref to ttbl_table.
-
     data x_relpath    type string.
     data x_filename   type string.
-    data x_tracepath  type string.
-    data x_tracedir   type ref to ztty_eezz_json.
-    data x_sapcontrol type ref to co_sapcontrol_factory.
     data x_path       type string.
-    data x_soap_data  type zstr_eezz_json.
 
     try.
         " Find the controlling structures for the given path
@@ -127,76 +124,17 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
 
         data(x_instance)  = x_sys_json->get( iv_path = path iv_match = 2 ).
         x_path            = x_sys_json->m_path.
-        x_relpath         = x_path.
-        x_sapcontrol     ?= x_sys_json->get_control( iv_path = x_path ).
-
-        data(x_traces)    = x_sys_json->get( iv_path = |{ x_path }/ReadLogFile/work| ).
-        x_path            = x_sys_json->m_path.
 
         if path cs 'disp+work'.
-          x_filename = 'dev_disp'.
+          x_relpath  = |{ x_path+1 }/work/dev_disp|.
         elseif path cs 'jstart'.
-          x_filename = 'dev_jstart'.
+          x_relpath  = |{ x_path+1 }/work/dev_jstart|.
         else.
           return.
         endif.
 
-        if x_sapcontrol is not bound.
-          x_soap_data   = x_traces->*[ c_key = |{ x_filename }.xml| ].
-        endif.
+        rt_table   = show_file( path = x_relpath ).
       catch cx_root into data(x_exception).
-        zcl_eezz_message=>add( iv_status = 500 iv_key = 'GetDevTrace' iv_exception = x_exception ).
-        raise exception x_exception.
-    endtry.
-
-    try.
-        xtbl_node = new ttbl_table( ).
-
-        if x_sapcontrol is bound.
-
-        endif.
-
-        if x_soap_data is not initial.
-          rt_table ?= x_traces->*[ c_key = |{ x_filename }.xml| ]-c_object.
-          if rt_table is bound.
-            return.
-          endif.
-
-          data(x_element)   = me->parse_xml( x_soap_data-c_value ).
-          data(x_processor) = new cl_xslt_processor( ).
-          x_processor->set_source_node( x_element ).
-          x_processor->set_expression( |//fields/item| ).
-          x_processor->run( progname = space ).
-
-          data(x_nodelist)    = x_processor->get_nodes( ).
-          data(x_iterator)    = x_nodelist->create_iterator( ).
-
-          do 10000 times.
-            data(x_next) = x_iterator->get_next( ).
-            if x_next is not bound.
-              exit.
-            endif.
-
-            data(x_value) = x_next->get_value( ).
-            append value #( inx = sy-index line = x_value ) to xtbl_node->*.
-          enddo.
-          clear x_soap_data-c_value.
-        endif.
-      catch cx_sy_itab_line_not_found.
-        return.
-    endtry.
-
-    try.
-        data(x_eezz_table) = new zcl_eezz_table( iv_table =  xtbl_node ).
-        data(x_dictionary) = x_eezz_table->get_dictionary( ).
-
-        x_dictionary->*[ c_key = 'table_key'  ]-c_value = |{ x_relpath }/work/{ x_filename }|.
-        x_dictionary->*[ c_key = 'table_path' ]-c_value = |{ x_path }/{ x_filename }|.
-        x_dictionary->*[ c_key = 'table_size' ]-c_value = |{ lines( xtbl_node->* ) }|.
-        x_traces->*[ c_key = |{ x_filename }.xml| ]-c_object = x_eezz_table.
-
-        rt_table = cast #( x_eezz_table ).
-      catch cx_root into x_exception.
         zcl_eezz_message=>add( iv_status = 500 iv_key = 'GetDevTrace' iv_exception = x_exception ).
         raise exception x_exception.
     endtry.
@@ -733,7 +671,7 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
     try.
         data(x_eezz_table) = new zcl_eezz_table( iv_table = xtbl_node ).
         x_dictionary = x_eezz_table->get_dictionary( ).
-        x_dictionary->*[ c_key = 'table_path' ]-c_value = x_path.
+        "-----x_dictionary->*[ c_key = 'table_path' ]-c_value = x_path.
         x_dictionary->*[ c_key = 'table_key'  ]-c_value = x_path.
         x_dictionary->*[ c_key = 'table_size' ]-c_value = |{ lines( xtbl_node->* ) }|.
         x_instance->*[ c_key = |GetVersionInfo.xml| ]-c_object = x_eezz_table.
@@ -796,7 +734,8 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
               iv_user        = user
               iv_password    = password
               iv_protocol    = 'http'
-              iv_sapinternal = ''.
+              iv_sapinternal = 'x'.
+          x_sapcontrol->mo_public_proxy->get_system_instance_list( exporting input = xinp_inst_list  importing output = xout_inst_list ).
           x_sys_json->join( iv_key = x_path iv_control = x_sapcontrol ).
         endif.
 
@@ -956,6 +895,112 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
   endmethod.
 
 
+  method show_file.
+    types: begin of tstr_line,
+             inx  type i,
+             line type string,
+           end of tstr_line.
+
+    types ttbl_table  type table of tstr_line with key inx initial size 0.
+    data  xtbl_node   type ref to ttbl_table.
+
+    data x_relpath    type string.
+    data x_filename   type string.
+    data x_tracepath  type string.
+    data x_tracedir   type ref to ztty_eezz_json.
+    data x_sapcontrol type ref to co_sapcontrol_factory.
+    data x_path       type string.
+    data x_soap_data  type zstr_eezz_json.
+
+    try.
+        " Find the controlling structures for the given path
+        split path at '/' into table data(x_split_path).
+        x_filename = x_split_path[ lines( x_split_path ) ].
+        delete x_split_path index lines( x_split_path ).
+        " delete from path: <system>/<instance>/ListFiles
+        delete x_split_path from 1 to 2.
+        if x_split_path[ 1 ] cs 'ListFiles'.
+          delete x_split_path index 1.
+        endif.
+
+        concatenate lines of x_split_path into data(x_log_path) separated by '/'.
+
+        data(x_sys_root)  = m_snapshot_jsn->get( iv_path = |Systems| ).
+        data(x_sys_json)  = new zcl_eezz_json( it_json = x_sys_root ).
+
+        x_sys_root        = x_sys_json->get( iv_path = path iv_match = 1 ).
+        data(x_sys_table) = x_sys_json->m_parent-c_object.
+
+        data(x_instance)  = x_sys_json->get( iv_path = path iv_match = 2 ).
+        x_path            = x_sys_json->m_path.
+        x_relpath         = x_path.
+        x_sapcontrol     ?= x_sys_json->get_control( iv_path = x_path ).
+
+        data(x_traces)  = x_sys_json->get( iv_path = |{ x_path }/ReadLogFile/{ x_log_path }| ).
+
+        if x_sapcontrol is not bound.
+          x_soap_data     = x_traces->*[ c_key = |{ x_filename }.xml| ].
+        endif.
+      catch cx_root into data(x_exception).
+        zcl_eezz_message=>add( iv_status = 500 iv_key = 'show_file' iv_exception = x_exception ).
+        raise exception x_exception.
+    endtry.
+
+    try.
+        xtbl_node = new ttbl_table( ).
+
+        if x_sapcontrol is bound.
+
+        endif.
+
+        if x_soap_data is not initial.
+          rt_table ?= x_traces->*[ c_key = |{ x_filename }.xml| ]-c_object.
+          if rt_table is bound.
+            return.
+          endif.
+
+          data(x_element)   = me->parse_xml( x_soap_data-c_value ).
+          data(x_processor) = new cl_xslt_processor( ).
+          x_processor->set_source_node( x_element ).
+          x_processor->set_expression( |//fields/item| ).
+          x_processor->run( progname = space ).
+
+          data(x_nodelist)    = x_processor->get_nodes( ).
+          data(x_iterator)    = x_nodelist->create_iterator( ).
+
+          do 10000 times.
+            data(x_next) = x_iterator->get_next( ).
+            if x_next is not bound.
+              exit.
+            endif.
+
+            data(x_value) = x_next->get_value( ).
+            append value #( inx = sy-index line = x_value ) to xtbl_node->*.
+          enddo.
+          clear x_soap_data-c_value.
+        endif.
+      catch cx_sy_itab_line_not_found.
+        return.
+    endtry.
+
+    try.
+        data(x_eezz_table) = new zcl_eezz_table( iv_table =  xtbl_node ).
+        data(x_dictionary) = x_eezz_table->get_dictionary( ).
+
+        x_dictionary->*[ c_key = 'table_key'  ]-c_value = |{ x_relpath }/work/{ x_filename }|.
+        x_dictionary->*[ c_key = 'table_path' ]-c_value = |{ x_path }/{ x_filename }|.
+        x_dictionary->*[ c_key = 'table_size' ]-c_value = |{ lines( xtbl_node->* ) }|.
+        x_traces->*[ c_key = |{ x_filename }.xml| ]-c_object = x_eezz_table.
+
+        rt_table = cast #( x_eezz_table ).
+      catch cx_root into x_exception.
+        zcl_eezz_message=>add( iv_status = 500 iv_key = 'show_file' iv_exception = x_exception ).
+        raise exception x_exception.
+    endtry.
+
+  endmethod.
+
+
   method zif_eezz_table~do_select.
     me->m_selected = |{ index }|.
 
@@ -978,45 +1023,51 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
 
 
   method zif_eezz_table~on_download.
-    types: begin of tstr_line,
-             c_inx  type string,
-             c_data type xstring,
-           end of tstr_line.
-    types: tty_table type table of tstr_line with key c_inx initial size 0.
+    types: ttbl_snapshot type table of xstring with empty key.
 
-    data x_ref_tbl   type ref to tty_table .
+    data x_ref_ttbl  type ref to ttbl_snapshot.
     data x_transfer  type i.
     data x_content   type xstring.
     data x_filedata  type string.
+    data x_length    type i.
 
-    if m_snapshot_tbl is initial.
-      m_snapshot_tbl = new tty_table( ).
-      m_transferred  = 0.
-    endif.
+    field-symbols <fsx> type x.
 
-    x_ref_tbl  = cast #( m_snapshot_tbl ).
     rv_message = new zcl_eezz_message( ).
 
     try.
         if iv_message->get_message_type( ) = iv_message->co_message_type_text.
           data(x_json)       = new zcl_eezz_json( iv_json = iv_message->get_text( ) ).
           data(x_progress)   = x_json->get_value( iv_key = |progress| ).
+          data(x_start)      = x_json->get_value( iv_key = |start|     iv_path = |file| ).
           data(x_filesize)   = x_json->get_value( iv_key = |size|      iv_path = |file| ).
           data(x_transfered) = x_json->get_value( iv_key = |chunkSize| iv_path = |file| ).
           data(x_filename)   = x_json->get_value( iv_key = |name|      iv_path = |file| ).
           data(x_chunksize)  = x_json->get_value( iv_key = |chunkSize| ).
           data(x_sequence)   = x_json->get_value( iv_key = |sequence|  iv_path = |file| ).
 
-          append value #( c_inx = x_sequence ) to x_ref_tbl->*.
-          data(x_segments)  = lines( x_ref_tbl->* ).
-          data(x_prog_seq)  = ( x_segments + 1 ) * ( x_chunksize / x_filesize ) * 100.
-          x_prog_seq        = nmin( val1 = x_prog_seq  val2 = 100 ).
+          if m_snapshot_tbl is initial.
+            m_snapshot_tbl = new ttbl_snapshot( ).
+            m_transferred  = 0.
+            x_ref_ttbl     = cast #( m_snapshot_tbl ).
+
+            do ( x_filesize div x_chunksize ) + 1 times.
+              append '00' to x_ref_ttbl->*.
+            enddo.
+          endif.
+
+          m_offset    = x_start.
+          m_chunksize = x_transfered.
+          m_sequence  = x_sequence.
 
           if m_transferred = 0.
             m_transferred   = x_filesize.
             m_snapshot_name = x_filename.
           endif.
-          m_transferred    = m_transferred - x_transfered.
+          m_transferred     = m_transferred - x_transfered.
+
+          data(x_prog_seq)  = ( 1 - ( m_transferred / x_filesize ) )  * 100.
+          x_prog_seq        = nmin( val1 = x_prog_seq  val2 = 100 ).
 
           rv_message->add( iv_key = |{ x_progress }.innerHTML|   iv_value = |{ x_prog_seq }%| ).
           rv_message->add( iv_key = |{ x_progress }.style.width| iv_value = |{ x_prog_seq }%| ).
@@ -1032,20 +1083,18 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
     endtry.
 
     try.
-        x_segments  = lines( x_ref_tbl->* ).
-        modify x_ref_tbl->* index x_segments from value #( c_data = iv_message->get_binary( ) ) transporting c_data.
+        x_ref_ttbl     = cast #( m_snapshot_tbl ).
+        x_ref_ttbl->*[ m_sequence + 1 ] = iv_message->get_binary( ).
+
+        "assign m_snapshot_res->* to <fsx>.
+        "<fsx>+m_offset(m_chunksize) = iv_message->get_binary( ).
 
         if m_transferred > 0.
           return.
         endif.
 
-        sort x_ref_tbl->* by c_inx.
-        loop at x_ref_tbl->* into data(x_wa).
-          m_snapshot_zip->write( x_wa-c_data ).
-        endloop.
-
-        clear x_ref_tbl->*.
-        clear m_snapshot_tbl.
+        CONCATENATE LINES OF x_ref_ttbl->* into data(x_res) in byte mode.
+        clear x_ref_ttbl->*.
 
         field-symbols <fswa> type zstr_eezz_json.
 
@@ -1066,30 +1115,36 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
           delete x_sysroot->* where c_key = x_entry.
         endif.
 
-        data(x_zip)      = new cl_abap_zip( ).
-        data(x_res_str)  = m_snapshot_zip->get_result_string( ).
-        x_zip->load( zip = x_res_str ).
+        data(x_zip) = new cl_abap_zip( ).
+        x_zip->load( zip = x_res ).
+
+        clear m_snapshot_res.
+
       catch cx_root into x_exception.
         rv_message->add( iv_status = 500 iv_key = 'OnLoad' iv_exception = x_exception ).
         raise exception x_exception.
     endtry.
 
     " store in shared memory segment
-    try.
-        data x_root type ref to zcl_eezz_drive.
-        data(x_handle) = zcl_eezz_shm=>attach_for_write( ).
-        create object x_root area handle x_handle.
-        x_handle->set_root( x_root ).
-        x_root->set( x_res_str ).
-        x_handle->detach_commit( ).
-      catch cx_root into x_exception.
-        rv_message->add( iv_key = 'OnLoad' iv_exception = x_exception ).
-    endtry.
+    "try.
+    "    data x_root type ref to zcl_eezz_drive.
+    "    data(x_handle) = zcl_eezz_shm=>attach_for_write( ).
+    "    create object x_root area handle x_handle.
+    "    x_handle->set_root( x_root ).
+    "    x_root->set( x_res_str ).
+    "    x_handle->detach_commit( ).
+    "  catch cx_root into x_exception.
+    "    rv_message->add( iv_key = 'OnLoad' iv_exception = x_exception ).
+    "endtry.
 
     try.
         data(x_tmpjsn) = new zcl_eezz_json( ).
 
         loop at x_zip->files into data(x_file).
+          if x_file-name np '*.xml'.
+            raise exception type cx_st_invalid_xml.
+          endif.
+
           x_zip->get( exporting index = sy-tabix importing content = x_content ).
           data(x_convert) = cl_abap_conv_in_ce=>create( input = x_content encoding = 'UTF-8' ignore_cerr = abap_true ).
           x_convert->read( importing data = x_filedata ).
@@ -1110,7 +1165,7 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
 
         clear m_snapshot_zip.
         rv_message->set_status( 201 ).
-      catch cx_apc_error.
+      catch cx_apc_error cx_root into x_exception.
         rv_message->add( iv_status = 500 iv_key = 'OnLoad' iv_exception = x_exception ).
         raise exception x_exception.
     endtry.
@@ -1123,7 +1178,7 @@ CLASS ZCL_SAPCONTROL IMPLEMENTATION.
         rv_request     = super->zif_eezz_table~prepare_download( iv_message ).
         m_snapshot_zip = new cl_abap_string_x_writer( ).
         clear m_snapshot_tbl.
-
+        clear m_snapshot_res.
       catch cx_apc_error cx_root into data(x_exception).
         raise exception x_exception.
     endtry.
